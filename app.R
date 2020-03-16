@@ -1,0 +1,207 @@
+#
+# This is a Shiny web application. You can run the application by clicking
+# the 'Run App' button above.
+#
+# Find out more about building applications with Shiny here:
+#
+#    http://shiny.rstudio.com/
+#
+
+library(shiny)
+library(deSolve)
+
+baseparam = function() {
+  param = list()
+  param$aI = 0.5
+  param$d = 1/6
+  param$m = 0.03
+  param$r = 1/6
+  
+  param$tStart = 30
+  param$tEnd = 100
+  param$eff = 0.3
+  
+  param$tMax = 100
+  
+  return(param)
+}
+
+# Define UI for application that draws a histogram
+ui <- fluidPage(
+   
+   # Application title
+   titlePanel("Ocean Life goes viral"),
+   
+   # Sidebar with a slider input for number of bins 
+   sidebarLayout(
+      sidebarPanel(
+         sliderInput("aI",
+                     "Transmission rate:",
+                     min = 0,
+                     max = 1,
+                     value = 0.5),
+         sliderInput("d",
+                    "Disease rate (1/day):",
+                    min = 0,
+                    max = 1,
+                    value = 1/6),
+         sliderInput("m",
+                     "Mortality risk:",
+                     min = 0,
+                     max = 0.2,
+                     value = 0.03),
+         sliderInput("r",
+                     "Recovery rate (1/day):",
+                     min = 0,
+                     max = 1,
+                     value = 1/6),
+      #),
+      # sidebarPanel(
+        sliderInput("tStart",
+                    "Day starting quarantine:",
+                    min = 0,
+                    max = 100,
+                    value = 30),
+        sliderInput("tEnd",
+                    "Day ending quarantine:",
+                    min = 0,
+                    max = 99,
+                    value = 99),
+        sliderInput("eff",
+                    "Transmission reduction:",
+                    min = 0,
+                    max = 1,
+                    value = 0.3)
+      ),
+      # Show plots
+      mainPanel(
+         plotOutput("plotEpidemic")
+      )
+   )
+)
+
+# Define server logic required to draw a histogram
+server <- function(input, output) {
+  
+  sim = eventReactive({
+    input$aI
+    input$d
+    input$m
+    input$r
+    input$tStart
+    input$tEnd
+    input$eff
+  },
+  {
+    # Set all parameters
+    param = list()
+    param$a = input$aI
+    param$d = input$d
+    param$m = input$m
+    param$r = input$r
+    param$tMax = 100
+    param$tStart = input$tStart
+    param$tEnd = input$tEnd
+    param$eff = input$eff
+
+    # Simulate
+    return( runCorona(param) )   
+  })
+  
+  
+  output$plotEpidemic <- renderPlot({
+    plotCorona( sim(), input$tStart, input$tEnd )
+  }, height=800)
+}
+
+runCorona <- function(param) {
+  
+  derivatives <- function(t,y,param) {
+    S = y[1]
+    I = y[2]
+    D = y[3]
+    M = y[4]
+    R = y[5]
+    
+    transmission = param$a*(I+D)*S
+    diseased = param$d*I
+    death = param$m*param$r*D
+    recovery = param$r*D
+    
+    dSdt = -transmission
+    dIdt = transmission - diseased
+    dDdt = diseased - death - recovery
+    dMdt = death
+    dRdt = recovery
+    
+    dydt = list(c(dSdt, dIdt, dDdt, dMdt, dRdt))
+  }
+  
+  y0 = c(1, 1/5e6, 0,0,0)
+  # Run before quarantine:
+  out = as.data.frame( ode(y0, seq(1, param$tStart, by=1), derivatives, parms = param) )
+  # Run during quarantine:
+  param$a = param$a * param$eff # Reduce transmission
+  n = dim(out)[1]
+  y0 = as.numeric( out[ n, 2:6] )
+  out = rbind( out[ 1:(n-1), ],
+               as.data.frame( ode(y0, seq(param$tStart, param$tEnd, by=1), derivatives, parms = param)))
+  # Run after end of quarantine:
+  param$a = param$a / param$eff # Reduce transmission
+  n = dim(out)[1]
+  y0 = as.numeric( out[ n, 2:6] )
+  out = rbind( out[ 1:(n-1), ],
+               as.data.frame( ode(y0, seq(param$tEnd, param$tMax, by=1), derivatives, parms = param)))
+  
+  names(out) = c("time", "S", "I", "D", "M", "R")
+  return(out)
+}
+
+plotCorona = function(out, tStart, tEnd) {
+  col = c("black","orange","red","blue","green")
+  par(mfcol=c(2,1))
+  #
+  # Linear plot
+  #
+  plot(out$time, out$S, type="l", lwd=3, ylim=c(0,1), 
+       xlab="Time (days)", ylab="Fraction of population", col=col[1])
+  lines(out$time, out$I, col=col[2], lwd=3)
+  lines(out$time, out$D, col=col[3], lwd=3)
+  lines(out$time, out$M, col=col[4], lwd=3)
+  lines(out$time, out$R, col=col[5], lwd=3)
+
+  lines( tStart*c(1,1), c(0,1), lty=3 )
+  lines( tEnd*c(1,1), c(0,1), lty=3 )
+  
+  legend( x="right",
+          legend=c("Susceptible", "Infected", "Diseased", "Dead", "Recovered"),
+          col=col, lty=rep(1,5), lwd=3)
+  
+  ix = length(out$time)
+  text(x=out$time[ix], y=out$M[ix]+0.03, 
+       adj=1, col="blue", 
+       labels=paste( format(out$M[ix], digits=2), "% dead"))
+  #
+  # Semilog plot
+  #
+  plot(out$time, out$S, type="l", lwd=3, ylim=c(1e-3,1), log="y",
+       xlab="Time (days)", ylab="Fraction of population", col=col[1])
+  lines(out$time, out$I, col=col[2], lwd=3)
+  lines(out$time, out$D, col=col[3], lwd=3)
+  lines(out$time, out$M, col=col[4], lwd=3)
+  lines(out$time, out$R, col=col[5], lwd=3)
+  
+  legend( x="right",
+          legend=c("Susceptible", "Infected", "Diseased", "Dead", "Recovered"),
+          col=col, lty=rep(1,5), lwd=3)
+  
+  ix = length(out$time)
+  text(x=out$time[ix], y=out$M[ix]+0.03, 
+       adj=1, col="blue", 
+       labels=paste( format(out$M[ix], digits=2), "% dead"))
+  
+}
+
+# Run the application 
+shinyApp(ui = ui, server = server)
+
