@@ -162,13 +162,15 @@ runCorona <- function(param) {
   # Run before quarantine:
   out = as.data.frame( ode(y0, seq(1, param$tStart, by=1), derivatives, parms = param) )
   # Run during quarantine:
-  param$a = param$a * param$eff # Reduce transmission
-  n = dim(out)[1]
-  y0 = as.numeric( out[ n, 2:6] )
-  out = rbind( out[ 1:(n-1), ],
-               as.data.frame( ode(y0, seq(param$tStart, param$tEnd, by=1), derivatives, parms = param)))
-  # Run after end of quarantine:
-  param$a = param$a / param$eff # Reduce transmission
+  if (param$tEnd>param$tStart) {
+    param$a = param$a * param$eff # Reduce transmission
+    n = dim(out)[1]
+    y0 = as.numeric( out[ n, 2:6] )
+    out = rbind( out[ 1:(n-1), ],
+                 as.data.frame( ode(y0, seq(param$tStart, param$tEnd, by=1), derivatives, parms = param)))
+    # Run after end of quarantine:
+    param$a = param$a / param$eff # Reduce transmission
+  }
   n = dim(out)[1]
   y0 = as.numeric( out[ n, 2:6] )
   out = rbind( out[ 1:(n-1), ],
@@ -189,8 +191,10 @@ plotCorona = function(out, tStart, tEnd) {
   #
   # Quarantine patch
   #
-  polygon( c(tStart, tEnd, tEnd, tStart), c(0,0,1,1), col=grey(0.8), border=NA ) 
-  text( tStart + 0.5*(tEnd-tStart), 0.95, labels="Quarantine")
+  if (tEnd > tStart) {
+    polygon( c(tStart, tEnd, tEnd, tStart), c(0,0,1,1), col=grey(0.8), border=NA ) 
+    text( tStart + 0.5*(tEnd-tStart), 0.95, labels="Quarantine")
+  }
   #lines( tStart*c(1,1), c(0,1), lty=3 )
   #lines( tEnd*c(1,1), c(0,1), lty=3 )
   lines(out$time, out$S, lwd=3)
@@ -217,7 +221,7 @@ plotCorona = function(out, tStart, tEnd) {
   #lines(out$time, out$M, col=col[4], lwd=3)
   #lines(out$time, out$R, col=col[5], lwd=3)
   
-
+  
 }
 
 # Run the application 
