@@ -210,22 +210,14 @@ plotCorona = function(out, tStart, tEnd) {
   #
   # Semilog plot
   #
-  plot(out$time, out$S, type="l", lwd=3, ylim=c(1e-3,1), log="y",
-       xlab="Time (days)", ylab="Fraction of population", col=col[1])
-  lines(out$time, out$I, col=col[2], lwd=3)
-  lines(out$time, out$D, col=col[3], lwd=3)
-  lines(out$time, out$M, col=col[4], lwd=3)
-  lines(out$time, out$R, col=col[5], lwd=3)
+  #plot(out$time, out$S, type="l", lwd=3, ylim=c(1e-3,1), log="y",
+  #     xlab="Time (days)", ylab="Fraction of population", col=col[1])
+  #lines(out$time, out$I, col=col[2], lwd=3)
+  #lines(out$time, out$D, col=col[3], lwd=3)
+  #lines(out$time, out$M, col=col[4], lwd=3)
+  #lines(out$time, out$R, col=col[5], lwd=3)
   
-  #legend( x="right",
-  #        legend=c("Susceptible", "Infected", "Diseased", "Dead", "Recovered"),
-  #        col=col, lty=rep(1,5), lwd=3)
-  
-  #ix = length(out$time)
-  #text(x=out$time[ix], y=out$M[ix]+0.03, 
-  #     adj=1, col="blue", 
-  #     labels=paste( format(out$M[ix], digits=2), "% dead"))
-  
+
 }
 
 # Run the application 
