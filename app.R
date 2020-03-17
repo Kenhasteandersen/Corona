@@ -71,10 +71,10 @@ ui <- fluidPage(
                   max = 12,
                   value = 6),
       sliderInput("m",
-                  "Mortality (fraction of diseased dying):",
+                  "Mortality (% of diseased dying):",
                   min = 0,
-                  max = 0.2,
-                  value = 0.03),
+                  max = 20,
+                  value = 3),
       sliderInput("r_recip",
                   "Time to recovery  (days):",
                   min = 0,
@@ -114,7 +114,7 @@ server <- function(input, output) {
     param = list()
     param$a = input$aI
     param$d = 1/input$d_recip
-    param$m = input$m
+    param$m = input$m/100
     param$r = 1/input$r_recip
     param$tMax = 100
     param$tStart = input$tStart
@@ -129,7 +129,9 @@ server <- function(input, output) {
     plotCorona( sim(), input$tStart, min(99, input$tQuarantine+input$tStart) )
   }, height=800)
   
-  output$about <- renderText("The simulator is only for illustration and should not be used for decisionsupport <br>
+  output$about <- renderText("The simulator is only for illustration and should not be used for decision support <br>
+See https://www.imperial.ac.uk/media/imperial-college/medicine/sph/ide/gida-fellowships/Imperial-College-COVID19-NPI-modelling-16-03-2020.pdf
+for in-depth analysis <br>
                              <br>
 Code available on https://github.com/Kenhasteandersen/Corona <br><br>
                              Made by Ken H Andersen, kha@aqua.dtu.dk<br>")
