@@ -212,7 +212,7 @@ plotCorona = function(out, tStart, tEnd) {
   ix = length(out$time)
   text(x=out$time[ix], y=out$M[ix]+0.03, 
        adj=1, col="blue", 
-       labels=paste( format(out$M[ix], digits=2), "% dead"))
+       labels=paste( format(out$M[ix]*100, digits=2), "% dead"))
   #
   # Semilog plot
   #
