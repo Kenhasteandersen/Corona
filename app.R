@@ -18,7 +18,7 @@ baseparam = function() {
   param$r = 1/6
   
   param$tStart = 30
-  param$tEnd = 100
+  param$tEnd = 99
   param$eff = 0.3
   
   param$tMax = 100
@@ -30,88 +30,103 @@ baseparam = function() {
 ui <- fluidPage(
    
    # Application title
-   titlePanel("Ocean Life goes viral"),
+   titlePanel("Corona infection simulator"),
    
    # Sidebar with a slider input for number of bins 
    sidebarLayout(
       sidebarPanel(
-         sliderInput("aI",
-                     "Transmission rate:",
-                     min = 0,
-                     max = 1,
-                     value = 0.5),
-         sliderInput("d",
-                    "Disease rate (1/day):",
-                    min = 0,
-                    max = 1,
-                    value = 1/6),
-         sliderInput("m",
-                     "Mortality risk:",
-                     min = 0,
-                     max = 0.2,
-                     value = 0.03),
-         sliderInput("r",
-                     "Recovery rate (1/day):",
-                     min = 0,
-                     max = 1,
-                     value = 1/6),
-      #),
-      # sidebarPanel(
+        h3('Quarantine:')
+        ,
         sliderInput("tStart",
-                    "Day starting quarantine:",
+                    "Day quarantine starts:",
                     min = 0,
                     max = 100,
                     value = 30),
-        sliderInput("tEnd",
-                    "Day ending quarantine:",
+        sliderInput("tQuarantine",
+                    "Length of quarantine:",
                     min = 0,
                     max = 99,
-                    value = 99),
+                    value = 14),
         sliderInput("eff",
-                    "Transmission reduction:",
+                    "Transmission reduction during quarantine:",
                     min = 0,
                     max = 1,
                     value = 0.3)
+        ,
+        h3('Simulation parameters')
+        ,
+        sliderInput("aI",
+                     "Transmission rate (per day):",
+                     min = 0,
+                     max = 1,
+                     value = 0.5),
+         sliderInput("d_recip",
+                    "Time from infection to symptions (days):",
+                    min = 0,
+                    max = 12,
+                    value = 6),
+         sliderInput("m",
+                     "Mortality (fraction of diseased dying):",
+                     min = 0,
+                     max = 0.2,
+                     value = 0.03),
+         sliderInput("r_recip",
+                     "Time to recovery  (days):",
+                     min = 0,
+                     max = 12,
+                     value = 6)
+      #),
+      # sidebarPanel(
+        
       ),
       # Show plots
       mainPanel(
-         plotOutput("plotEpidemic")
+        tabsetPanel(
+          tabPanel('About',
+                   uiOutput("about")),
+          tabPanel('Simulation results',
+                   plotOutput("plotEpidemic")),
+          selected='Simulation results'
+        )
       )
    )
 )
 
-# Define server logic required to draw a histogram
+# Define server logic
 server <- function(input, output) {
   
   sim = eventReactive({
     input$aI
-    input$d
+    input$d_recip
     input$m
-    input$r
+    input$r_recip
     input$tStart
-    input$tEnd
+    input$tQuarantine
     input$eff
   },
   {
     # Set all parameters
     param = list()
     param$a = input$aI
-    param$d = input$d
+    param$d = 1/input$d_recip
     param$m = input$m
-    param$r = input$r
+    param$r = 1/input$r_recip
     param$tMax = 100
     param$tStart = input$tStart
-    param$tEnd = input$tEnd
+    param$tEnd = min(param$tMax-1, input$tQuarantine+param$tStart)
     param$eff = input$eff
 
     # Simulate
     return( runCorona(param) )   
   })
-  
-  
+ 
   output$plotEpidemic <- renderPlot({
-    plotCorona( sim(), input$tStart, input$tEnd )
+    plotCorona( sim(), input$tStart, min(param$tMax-1, input$tQuarantine+param$tStart) )
   }, height=800)
+  
+  output$about <- renderText("The simulator is only for illustration and should not be used for decisionsupport <br>
+                             <br>
+                             Made by Ken H Andersen, kha@aqua.dtu.dk<br>")
 }
 
 runCorona <- function(param) {
@@ -165,17 +180,22 @@ plotCorona = function(out, tStart, tEnd) {
   #
   plot(out$time, out$S, type="l", lwd=3, ylim=c(0,1), 
        xlab="Time (days)", ylab="Fraction of population", col=col[1])
+  #
+  # Quarantine patch
+  #
+  polygon( c(tStart, tEnd, tEnd, tStart), c(0,0,1,1), col=grey(0.8), border=NA ) 
+  text( tStart + 0.5*(tEnd-tStart), 0.95, labels="Quarantine")
+  #lines( tStart*c(1,1), c(0,1), lty=3 )
+  #lines( tEnd*c(1,1), c(0,1), lty=3 )
+  lines(out$time, out$S, lwd=3)
   lines(out$time, out$I, col=col[2], lwd=3)
   lines(out$time, out$D, col=col[3], lwd=3)
   lines(out$time, out$M, col=col[4], lwd=3)
   lines(out$time, out$R, col=col[5], lwd=3)
-
-  lines( tStart*c(1,1), c(0,1), lty=3 )
-  lines( tEnd*c(1,1), c(0,1), lty=3 )
   
   legend( x="right",
-          legend=c("Susceptible", "Infected", "Diseased", "Dead", "Recovered"),
-          col=col, lty=rep(1,5), lwd=3)
+          legend=c("Susceptible (healthy)", "Infected (no symptoms)", "Diseased (symptoms)", "Dead", "Recovered"),
+          col=col, lty=rep(1,5), lwd=3, bty="n")
   
   ix = length(out$time)
   text(x=out$time[ix], y=out$M[ix]+0.03, 
@@ -191,14 +211,14 @@ plotCorona = function(out, tStart, tEnd) {
   lines(out$time, out$M, col=col[4], lwd=3)
   lines(out$time, out$R, col=col[5], lwd=3)
   
-  legend( x="right",
-          legend=c("Susceptible", "Infected", "Diseased", "Dead", "Recovered"),
-          col=col, lty=rep(1,5), lwd=3)
+  #legend( x="right",
+  #        legend=c("Susceptible", "Infected", "Diseased", "Dead", "Recovered"),
+  #        col=col, lty=rep(1,5), lwd=3)
   
-  ix = length(out$time)
-  text(x=out$time[ix], y=out$M[ix]+0.03, 
-       adj=1, col="blue", 
-       labels=paste( format(out$M[ix], digits=2), "% dead"))
+  #ix = length(out$time)
+  #text(x=out$time[ix], y=out$M[ix]+0.03, 
+  #     adj=1, col="blue", 
+  #     labels=paste( format(out$M[ix], digits=2), "% dead"))
   
 }
 
