@@ -121,7 +121,7 @@ server <- function(input, output) {
   })
  
   output$plotEpidemic <- renderPlot({
-    plotCorona( sim(), input$tStart, min(param$tMax-1, input$tQuarantine+param$tStart) )
+    plotCorona( sim(), input$tStart, min(99, input$tQuarantine+input$tStart) )
   }, height=800)
   
   output$about <- renderText("The simulator is only for illustration and should not be used for decisionsupport <br>
