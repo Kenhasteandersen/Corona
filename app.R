@@ -131,6 +131,7 @@ server <- function(input, output) {
   
   output$about <- renderText("The simulator is only for illustration and should not be used for decisionsupport <br>
                              <br>
+Code available on https://github.com/Kenhasteandersen/Corona <br><br>
                              Made by Ken H Andersen, kha@aqua.dtu.dk<br>")
 }
 
