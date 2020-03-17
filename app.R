@@ -28,68 +28,73 @@ baseparam = function() {
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
-   
-   # Application title
-   titlePanel("Corona infection simulator"),
-   
-   # Sidebar with a slider input for number of bins 
-   sidebarLayout(
-      sidebarPanel(
-        h3('Quarantine:')
-        ,
-        sliderInput("tStart",
-                    "Day quarantine starts:",
-                    min = 0,
-                    max = 100,
-                    value = 30),
-        sliderInput("tQuarantine",
-                    "Length of quarantine:",
-                    min = 0,
-                    max = 99,
-                    value = 14),
-        sliderInput("eff",
-                    "Transmission reduction during quarantine:",
-                    min = 0,
-                    max = 1,
-                    value = 0.3)
-        ,
-        h3('Simulation parameters')
-        ,
-        sliderInput("aI",
-                     "Transmission rate (per day):",
-                     min = 0,
-                     max = 1,
-                     value = 0.5),
-         sliderInput("d_recip",
-                    "Time from infection to symptions (days):",
-                    min = 0,
-                    max = 12,
-                    value = 6),
-         sliderInput("m",
-                     "Mortality (fraction of diseased dying):",
-                     min = 0,
-                     max = 0.2,
-                     value = 0.03),
-         sliderInput("r_recip",
-                     "Time to recovery  (days):",
-                     min = 0,
-                     max = 12,
-                     value = 6)
+  tags$head(
+    # Add google analytics tracking:
+    includeHTML(("googleanalytics.html")),
+    # Make rules widers:
+    tags$style(HTML("hr {border-top: 1px solid #444444;}"))
+  ),
+  # Application title
+  titlePanel("Corona infection simulator"),
+  
+  # Sidebar with a slider input for number of bins 
+  sidebarLayout(
+    sidebarPanel(
+      h3('Quarantine:')
+      ,
+      sliderInput("tStart",
+                  "Day quarantine starts:",
+                  min = 0,
+                  max = 100,
+                  value = 30),
+      sliderInput("tQuarantine",
+                  "Length of quarantine:",
+                  min = 0,
+                  max = 99,
+                  value = 14),
+      sliderInput("eff",
+                  "Transmission reduction during quarantine:",
+                  min = 0,
+                  max = 1,
+                  value = 0.3)
+      ,
+      h3('Simulation parameters')
+      ,
+      sliderInput("aI",
+                  "Transmission rate (per day):",
+                  min = 0,
+                  max = 1,
+                  value = 0.5),
+      sliderInput("d_recip",
+                  "Time from infection to symptions (days):",
+                  min = 0,
+                  max = 12,
+                  value = 6),
+      sliderInput("m",
+                  "Mortality (fraction of diseased dying):",
+                  min = 0,
+                  max = 0.2,
+                  value = 0.03),
+      sliderInput("r_recip",
+                  "Time to recovery  (days):",
+                  min = 0,
+                  max = 12,
+                  value = 6)
       #),
       # sidebarPanel(
-        
-      ),
-      # Show plots
-      mainPanel(
-        tabsetPanel(
-          tabPanel('About',
-                   uiOutput("about")),
-          tabPanel('Simulation results',
-                   plotOutput("plotEpidemic")),
-          selected='Simulation results'
-        )
+      
+    ),
+    # Show plots
+    mainPanel(
+      tabsetPanel(
+        tabPanel('About',
+                 uiOutput("about")),
+        tabPanel('Simulation results',
+                 plotOutput("plotEpidemic")),
+        selected='Simulation results'
       )
-   )
+    )
+  )
 )
 
 # Define server logic
@@ -115,11 +120,11 @@ server <- function(input, output) {
     param$tStart = input$tStart
     param$tEnd = min(param$tMax-1, input$tQuarantine+param$tStart)
     param$eff = input$eff
-
+    
     # Simulate
     return( runCorona(param) )   
   })
- 
+  
   output$plotEpidemic <- renderPlot({
     plotCorona( sim(), input$tStart, min(99, input$tQuarantine+input$tStart) )
   }, height=800)
