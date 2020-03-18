@@ -53,10 +53,10 @@ ui <- fluidPage(
                   max = 99,
                   value = 14),
       sliderInput("eff",
-                  "Transmission reduction during quarantine:",
+                  "Transmission reduction during quarantine (% reduction):",
                   min = 0,
-                  max = 1,
-                  value = 0.3)
+                  max = 100,
+                  value = 70)
       ,
       h3('Simulation parameters')
       ,
@@ -119,7 +119,7 @@ server <- function(input, output) {
     param$tMax = 100
     param$tStart = input$tStart
     param$tEnd = min(param$tMax-1, input$tQuarantine+param$tStart)
-    param$eff = input$eff
+    param$eff = 1-input$eff/100
     
     # Simulate
     return( runCorona(param) )   
@@ -134,7 +134,8 @@ See https://www.imperial.ac.uk/media/imperial-college/medicine/sph/ide/gida-fell
 for in-depth analysis <br>
                              <br>
 Code available on https://github.com/Kenhasteandersen/Corona <br><br>
-                             Made by Ken H Andersen, kha@aqua.dtu.dk<br>")
+                             Made by Ken H Andersen, kha@aqua.dtu.dk, http://ken.haste.dk.")
+                  
 }
 
 runCorona <- function(param) {
