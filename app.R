@@ -12,15 +12,27 @@ library(deSolve)
 
 baseparam = function() {
   param = list()
+  #
+  # Basic SIR parameters
+  #
   param$aI = 0.5
   param$d = 1/6
   param$m = 0.03
   param$r = 1/6
-  
+  #
+  # Quarantine parameters
+  #
   param$tStart = 30
   param$tEnd = 99
   param$eff = 0.3
-  
+  #
+  # ICU (per person)
+  #
+  param$ICU = 0.0003 # US; https://www.medpagetoday.com/hospitalbasedmedicine/generalhospitalpractice/84845
+  param$ICUAdmissionRate = 0.0025  # https://www.medpagetoday.com/hospitalbasedmedicine/generalhospitalpractice/84845
+  #
+  # Simulation time
+  #
   param$tMax = 100
   
   return(param)
@@ -58,7 +70,20 @@ ui <- fluidPage(
                   max = 100,
                   value = 70)
       ,
-      h3('Simulation parameters')
+      h3('Intensive care capacity')
+      ,
+      sliderInput("ICU",
+                  "No. of intensive care units per million",
+                  min=0,
+                  max=1000,
+                  value=300),
+      sliderInput("ICUAdmissionRate",
+                   "% needing intensive care",
+                   min=0,
+                   max=1,
+                   value=0.25)
+      ,
+      h3('Epidemic parameters')
       ,
       sliderInput("aI",
                   "Transmission rate (per day):",
@@ -101,33 +126,42 @@ ui <- fluidPage(
 server <- function(input, output) {
   
   sim = eventReactive({
+    input$tStart
+    input$tQuarantine
+    input$eff
+    input$ICU
+    input$ICUAdmissionRate
     input$aI
     input$d_recip
     input$m
     input$r_recip
-    input$tStart
-    input$tQuarantine
-    input$eff
+    
   },
   {
     # Set all parameters
-    param = list()
+    param = baseparam()
+
+    param$tStart = input$tStart
+    param$tEnd = min(param$tMax-1, input$tQuarantine+param$tStart)
+    param$eff = 1-input$eff/100
+
+    param$ICU = input$ICU*1e-6
+    param$ICUAdmissionRate = input$ICUAdmissionRate/100
+
     param$a = input$aI
     param$d = 1/input$d_recip
     param$m = input$m/100
     param$r = 1/input$r_recip
+    
     param$tMax = 100
-    param$tStart = input$tStart
-    param$tEnd = min(param$tMax-1, input$tQuarantine+param$tStart)
-    param$eff = 1-input$eff/100
     
     # Simulate
-    return( runCorona(param) )   
+    return( list(sim=runCorona(param), param=param) )   
   })
   
   output$plotEpidemic <- renderPlot({
-    plotCorona( sim(), input$tStart, min(99, input$tQuarantine+input$tStart) )
-  }, height=800)
+    plotCorona( sim()$sim, sim()$param )
+  }, height=400)
   
   output$about <- renderText("The simulator is only for illustration and should not be used for decision support <br>
 See https://www.imperial.ac.uk/media/imperial-college/medicine/sph/ide/gida-fellowships/Imperial-College-COVID19-NPI-modelling-16-03-2020.pdf
@@ -183,48 +217,118 @@ runCorona <- function(param) {
   return(out)
 }
 
-plotCorona = function(out, tStart, tEnd) {
-  col = c("black","orange","red","blue","green")
-  par(mfcol=c(2,1))
+plotCorona = function(out, param) {
+  col = c("blue","blue","red","black","green")
+  #par(mfcol=c(2,1))
   #
-  # Linear plot
+  # Main plot
   #
-  plot(out$time, out$S, type="l", lwd=3, ylim=c(0,1), 
+  # plot(out$time, out$S, type="l", lwd=3, ylim=c(0,1), 
+  #      xlab="Time (days)", ylab="Fraction of population", col=col[1])
+  # #
+  # # Quarantine patch
+  # #
+  # if (param$tEnd > param$tStart) {
+  #   polygon( c(param$tStart, param$tEnd, param$tEnd, param$tStart), c(0,0,1,1), col=grey(0.8), border=NA ) 
+  #   text( param$tStart + 0.5*(param$tEnd-param$tStart), 0.95, labels="Quarantine")
+  # }
+  # #
+  # # SIR output:
+  # #
+  # lines(out$time, out$S, lwd=3)
+  # lines(out$time, out$I, col=col[2], lwd=3)
+  # patchBelow(out$time, 0, out$D, col=rgb(1,0,0,0.5))
+  # #?polygonlines(out$time, out$D, col=col[3], lwd=3)
+  # lines(out$time, out$M, col=col[4], lwd=3)
+  # lines(out$time, out$R, col=col[5], lwd=3)
+  # 
+  # legend( x="right",
+  #         legend=c("Susceptible (healthy)", "Infected (no symptoms)", "Diseased (symptoms)", "Dead", "Recovered"),
+  #         col=col, lty=rep(1,5), lwd=3, bty="n")
+  # 
+  # ix = length(out$time)
+  # text(x=out$time[ix], y=out$M[ix]+0.03, 
+  #      adj=1, col="blue", 
+  #      labels=paste( format(out$M[ix]*100, digits=2), "% dead"))
+  #
+  # Main plot #2
+  #
+  plot(out$time, out$S, type="n", lwd=3, ylim=c(0,0.4), 
        xlab="Time (days)", ylab="Fraction of population", col=col[1])
   #
   # Quarantine patch
   #
-  if (tEnd > tStart) {
-    polygon( c(tStart, tEnd, tEnd, tStart), c(0,0,1,1), col=grey(0.8), border=NA ) 
-    text( tStart + 0.5*(tEnd-tStart), 0.95, labels="Quarantine")
+  if (param$tEnd > param$tStart) {
+    polygon( c(param$tStart, param$tEnd, param$tEnd, param$tStart), c(0,0,1,1), col=grey(0.8), border=NA ) 
+    text( param$tStart + 0.5*(param$tEnd-param$tStart), 0.39, labels="Quarantine")
   }
-  #lines( tStart*c(1,1), c(0,1), lty=3 )
-  #lines( tEnd*c(1,1), c(0,1), lty=3 )
-  lines(out$time, out$S, lwd=3)
+  #
+  # SIR output:
+  #
+  #lines(out$time, out$S, lwd=3)
+  patchBelow(out$time, 0, out$D, col=rgb(1,0,0,0.5))
+  patchBelow(out$time, param$ICU/param$ICUAdmissionRate, pmax(param$ICU/param$ICUAdmissionRate, out$D), col=rgb(1,0,0,1))
   lines(out$time, out$I, col=col[2], lwd=3)
-  lines(out$time, out$D, col=col[3], lwd=3)
+  lines(range(out$time), param$ICU/param$ICUAdmissionRate*c(1,1), col="red")
+  #?polygonlines(out$time, out$D, col=col[3], lwd=3)
   lines(out$time, out$M, col=col[4], lwd=3)
-  lines(out$time, out$R, col=col[5], lwd=3)
-  
-  legend( x="right",
-          legend=c("Susceptible (healthy)", "Infected (no symptoms)", "Diseased (symptoms)", "Dead", "Recovered"),
-          col=col, lty=rep(1,5), lwd=3, bty="n")
+  text(x=0, y=param$ICU/param$ICUAdmissionRate, label="Limit of intensive\ncare capacity", adj=c(-0.01,-0.2), col="red")
+  #lines(out$time, out$R, col=col[5], lwd=3)
+  # lines(range(out$time), param$ICU*c(1,1))
+  # text(x=0, y=param$ICU, label="No. of intensive care units", adj=c(-0.01,-0.2))
+  #
+  legend( x="topright",
+          legend=c("Infected (no symptoms)", "Diseased (symptoms)", "Dead"),
+          col=col[2:4], lty=rep(1,3), lwd=3, bty="n")
   
   ix = length(out$time)
-  text(x=out$time[ix], y=out$M[ix]+0.03, 
-       adj=1, col="blue", 
+  text(x=out$time[ix], y=out$M[ix]+0.015, 
+       adj=1, col=col[4], 
        labels=paste( format(out$M[ix]*100, digits=2), "% dead"))
+  #
+  # Patients in ICUs:
+  #
+  # plot(out$time, out$D*param$ICUAdmissionRate, type="nS", lwd=3, ylim=c(0,1e-3), 
+  #      xlab="Time (days)", ylab="Fraction of population", col=col[1],
+  #      main="Patients in need of intensive care units")
+  # # Quarantine patch
+  # if (param$tEnd > param$tStart) {
+  #   polygon( c(param$tStart, param$tEnd, param$tEnd, param$tStart), c(0,0,1,1), col=grey(0.8), border=NA ) 
+  #   text( param$tStart + 0.5*(param$tEnd-param$tStart), 0.95, labels="Quarantine")
+  # }
+  # patchBelow(out$time, 0, out$D*param$ICUAdmissionRate, col=rgb(1,0,0,0.5))
+  # patchBelow(out$time, param$ICU, pmax(param$ICU, out$D*param$ICUAdmissionRate), col=rgb(1,0,0,1))
+  # lines(range(out$time), param$ICU*c(1,1))
+  # text(x=0, y=param$ICU, label="No. of intensive care units", adj=c(-0.01,-0.2))
   #
   # Semilog plot
   #
-  #plot(out$time, out$S, type="l", lwd=3, ylim=c(1e-3,1), log="y",
-  #     xlab="Time (days)", ylab="Fraction of population", col=col[1])
-  #lines(out$time, out$I, col=col[2], lwd=3)
-  #lines(out$time, out$D, col=col[3], lwd=3)
-  #lines(out$time, out$M, col=col[4], lwd=3)
-  #lines(out$time, out$R, col=col[5], lwd=3)
-  
-  
+  # plot(out$time, out$S, type="l", lwd=3, ylim=c(1e-4,1), log="y",
+  #      xlab="Time (days)", ylab="Fraction of population", col=col[1])
+  # #
+  # # Quarantine patch
+  # #
+  # if (param$tEnd > param$tStart) {
+  #   polygon( c(param$tStart, param$tEnd, param$tEnd, param$tStart), c(1e-5,1e-5,1,1), col=grey(0.8), border=NA ) 
+  #   #text( param$tStart + 0.5*(param$tEnd-param$tStart), 0.95, labels="Quarantine")
+  # }  
+  # lines(out$time, out$S, lwd=3)
+  # lines(out$time, out$I, col=col[2], lwd=3)
+  # #lines(out$time, out$D, col=col[3], lwd=1)
+  # patchBelow(out$time, 1e-5, out$D, col=rgb(1,0,0,0.5))
+  # patchBelow(out$time, 1e-5, out$D*param$ICUAdmissionRate, col=rgb(1,0,0,1))
+  # #lines(out$time, out$D*param$ICUAdmissionRate, col=col[3], lwd=3)
+  # lines(out$time, out$M, col=col[4], lwd=3)
+  # lines(out$time, out$R, col=col[5], lwd=3)
+  # #
+  # # ICUs
+  # #
+  # lines(range(out$time), param$ICU*c(1,1))
+}
+
+patchBelow <- function(x,y0,y,col) {
+  ix = seq(length(x),1,by = -1)
+  polygon(c(x, x[ix]), c(y*0+y0, y[ix]), col=col, border=NA)
 }
 
 # Run the application 
