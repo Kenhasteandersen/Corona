@@ -80,8 +80,9 @@ ui <- fluidPage(
       sliderInput("ICUAdmissionRate",
                    "% needing intensive care",
                    min=0,
-                   max=2,
-                   value=0.5)
+                   max=1.5,
+                   value=0.25,
+                   step=0.05)
       ,
       h3('Epidemic parameters')
       ,
@@ -168,10 +169,10 @@ server <- function(input, output) {
                                     those being infection (without symptoms) and those with symptoms."),
                                     p("Parameters are set based on rough estimates from wikipedia etc. Please let me know if any are wrong"),
                                     "See ", a("here", href="https://www.imperial.ac.uk/media/imperial-college/medicine/sph/ide/gida-fellowships/Imperial-College-COVID19-NPI-modelling-16-03-2020.pdf") ,
-                                    " for in-depth analysis",
+                                    " for in-depth analysis. ",
                                     ("Code available on "),
                                     a("github", href="https://github.com/Kenhasteandersen/Corona"),
-                                    "Made by ",
+                                    ". Made by ",
                                     a("Ken H Andersen", href="http://ken.haste.dk"))
                                     })
 
