@@ -163,15 +163,27 @@ server <- function(input, output) {
     plotCorona( sim()$sim, sim()$param )
   }, height=400)
   
-  output$about <- renderText("The simulator is only for illustration and should not be used for decision support <br><br>
-The simulator is based on a standard SIR (Susceptible-Infected-Recovered) epidemics model, though with an added distinction between
-those being infection (without symptoms) and those with symptoms.<br><br>
-Parameters are set based on rough estimates from wikipedia etc. Please let me know if any are wrong<br><br>
-See https://www.imperial.ac.uk/media/imperial-college/medicine/sph/ide/gida-fellowships/Imperial-College-COVID19-NPI-modelling-16-03-2020.pdf
-for in-depth analysis <br>
-                             <br>
-Code available on https://github.com/Kenhasteandersen/Corona <br><br>
-                             Made by Ken H Andersen, kha@aqua.dtu.dk, http://ken.haste.dk.")
+  output$about <- renderUI({tagList(p("The simulator is only for illustration and should not be used for decision support"),
+                                    p("The simulator is based on a standard SIR (Susceptible-Infected-Recovered) epidemics model, though with an added distinction between
+                                    those being infection (without symptoms) and those with symptoms."),
+                                    p("Parameters are set based on rough estimates from wikipedia etc. Please let me know if any are wrong"),
+                                    "See ", a("here", href="https://www.imperial.ac.uk/media/imperial-college/medicine/sph/ide/gida-fellowships/Imperial-College-COVID19-NPI-modelling-16-03-2020.pdf") ,
+                                    " for in-depth analysis",
+                                    ("Code available on "),
+                                    a("github", href="https://github.com/Kenhasteandersen/Corona"),
+                                    "Made by ",
+                                    a("Ken H Andersen", href="http://ken.haste.dk"))
+                                    })
+
+#"The simulator is only for illustration and should not be used for decision support <br><br>
+#The simulator is based on a standard SIR (Susceptible-Infected-Recovered) epidemics model, though with an added distinction between
+#those being infection (without symptoms) and those with symptoms.<br><br>
+#Parameters are set based on rough estimates from wikipedia etc. Please let me know if any are wrong<br><br>
+#See https://www.imperial.ac.uk/media/imperial-college/medicine/sph/ide/gida-fellowships/Imperial-College-COVID19-NPI-modelling-16-03-2020.pdf
+#for in-depth analysis <br>
+#                             <br>
+#Code available on https://github.com/Kenhasteandersen/Corona <br><br>
+#                             Made by Ken H Andersen, kha@aqua.dtu.dk, http://ken.haste.dk.")
                   
 }
 
@@ -186,6 +198,9 @@ runCorona <- function(param) {
     
     transmission = param$a*(I+D)*S
     diseased = param$d*I
+    
+    mortality = param$m*param$r # "normal" mortaliry
+    
     death = param$m*param$r*D
     recovery = param$r*D
     
