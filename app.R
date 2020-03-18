@@ -44,7 +44,7 @@ ui <- fluidPage(
       ,
       sliderInput("tStart",
                   "Day quarantine starts:",
-                  min = 0,
+                  min = 2,
                   max = 100,
                   value = 30),
       sliderInput("tQuarantine",
