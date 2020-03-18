@@ -80,8 +80,8 @@ ui <- fluidPage(
       sliderInput("ICUAdmissionRate",
                    "% needing intensive care",
                    min=0,
-                   max=1,
-                   value=0.25)
+                   max=2,
+                   value=0.5)
       ,
       h3('Epidemic parameters')
       ,
