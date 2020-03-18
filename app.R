@@ -278,8 +278,8 @@ plotCorona = function(out, param) {
   # text(x=0, y=param$ICU, label="No. of intensive care units", adj=c(-0.01,-0.2))
   #
   legend( x="topright",
-          legend=c("Infected (no symptoms)", "Diseased (symptoms)", "Dead"),
-          col=col[2:4], lty=rep(1,3), lwd=3, bty="n")
+          legend=c("","Infected (no symptoms)", "Diseased (symptoms)", "Dead"),
+          col=col[1:4], lty=rep(1,4), lwd=c(0,3,3,3), bty="n")
   
   ix = length(out$time)
   text(x=out$time[ix], y=out$M[ix]+0.015, 
