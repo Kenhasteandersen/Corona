@@ -163,7 +163,10 @@ server <- function(input, output) {
     plotCorona( sim()$sim, sim()$param )
   }, height=400)
   
-  output$about <- renderText("The simulator is only for illustration and should not be used for decision support <br>
+  output$about <- renderText("The simulator is only for illustration and should not be used for decision support <br><br>
+The simulator is based on a standard SIR (Susceptible-Infected-Recovered) epidemics model, though with an added distinction between
+those being infection (without symptoms) and those with symptoms.<br><br>
+Parameters are set based on rough estimates from wikipedia etc. Please let me know if any are wrong<br><br>
 See https://www.imperial.ac.uk/media/imperial-college/medicine/sph/ide/gida-fellowships/Imperial-College-COVID19-NPI-modelling-16-03-2020.pdf
 for in-depth analysis <br>
                              <br>
