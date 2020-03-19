@@ -1,12 +1,6 @@
 #
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
+# This is a Shiny web application. 
 #
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-
 library(shiny)
 library(deSolve)
 
@@ -17,7 +11,7 @@ baseparam = function() {
   #
   param$aI = 0.5
   param$d = 1/6
-  param$m = 0.03
+  param$m = 0.01 # The risk of dying if the disease is contracted
   param$r = 1/6
   #
   # Quarantine parameters
@@ -29,7 +23,7 @@ baseparam = function() {
   # ICU (per person)
   #
   param$ICU = 0.0003 # US; https://www.medpagetoday.com/hospitalbasedmedicine/generalhospitalpractice/84845
-  param$ICUAdmissionRate = 0.0025  # https://www.medpagetoday.com/hospitalbasedmedicine/generalhospitalpractice/84845
+  param$ICUAdmissionFraction = 0.0025  # https://www.medpagetoday.com/hospitalbasedmedicine/generalhospitalpractice/84845
   #
   # Simulation time
   #
@@ -37,8 +31,9 @@ baseparam = function() {
   
   return(param)
 }
-
-# Define UI for application that draws a histogram
+#
+# Define UI for application
+#
 ui <- fluidPage(
   tags$head(
     # Add google analytics tracking:
@@ -47,7 +42,7 @@ ui <- fluidPage(
     tags$style(HTML("hr {border-top: 1px solid #444444;}"))
   ),
   # Application title
-  titlePanel("Corona infection simulator"),
+  titlePanel("Corona quarantine simulator"),
   
   # Sidebar with a slider input for number of bins 
   sidebarLayout(
@@ -70,42 +65,61 @@ ui <- fluidPage(
                   max = 100,
                   value = 70)
       ,
-      h3('Intensive care capacity')
+      hr(),
+      checkboxInput("bParamICU",
+                    label="Intensive care capacity: ",
+                    value=FALSE)
       ,
-      sliderInput("ICU",
-                  "No. of intensive care units per million",
-                  min=0,
-                  max=1000,
-                  value=300),
-      sliderInput("ICUAdmissionRate",
-                   "% needing intensive care",
-                   min=0,
-                   max=1.5,
-                   value=0.25,
-                   step=0.05)
-      ,
-      h3('Epidemic parameters')
-      ,
-      sliderInput("aI",
-                  "Transmission rate (per day):",
-                  min = 0,
-                  max = 1,
-                  value = 0.5),
-      sliderInput("d_recip",
-                  "Time from infection to symptions (days):",
-                  min = 0,
-                  max = 12,
-                  value = 6),
-      sliderInput("m",
-                  "Mortality (% of diseased dying):",
-                  min = 0,
-                  max = 5,
-                  value = 1),
-      sliderInput("r_recip",
-                  "Time to recovery  (days):",
-                  min = 0,
-                  max = 12,
-                  value = 6)
+      conditionalPanel(
+        condition = "input.bParamICU==true"
+        ,
+        h3('Intensive care capacity')
+        ,
+        sliderInput("ICU",
+                    "No. of intensive care units per million",
+                    min=0,
+                    max=1000,
+                    value=300),
+        sliderInput("ICUAdmissionFraction",
+                    "% needing intensive care",
+                    min=0,
+                    max=1.5,
+                    value=0.25,
+                    step=0.05)
+        ,
+        hr(),
+        checkboxInput("bMoreParam",
+                      label="Show infection parameters",
+                      value=FALSE)
+        ,
+        conditionalPanel(
+          condition = "input.bMoreParam==true"
+          ,
+          h3('Epidemic parameters')
+          ,
+          
+          sliderInput("aI",
+                      "Transmission rate (per day):",
+                      min = 0,
+                      max = 1,
+                      value = 0.5),
+          sliderInput("d_recip",
+                      "Time from infection to symptions (days):",
+                      min = 0,
+                      max = 12,
+                      value = 6),
+          sliderInput("m",
+                      "Mortality (% of diseased dying):",
+                      min = 0,
+                      max = 5,
+                      value = 1),
+          sliderInput("r_recip",
+                      "Time to recovery  (days):",
+                      min = 0,
+                      max = 12,
+                      value = 6)
+        )
+      )
       #),
       # sidebarPanel(
       
@@ -131,7 +145,7 @@ server <- function(input, output) {
     input$tQuarantine
     input$eff
     input$ICU
-    input$ICUAdmissionRate
+    input$ICUAdmissionFraction
     input$aI
     input$d_recip
     input$m
@@ -141,14 +155,14 @@ server <- function(input, output) {
   {
     # Set all parameters
     param = baseparam()
-
+    
     param$tStart = input$tStart
     param$tEnd = min(param$tMax-1, input$tQuarantine+param$tStart)
     param$eff = 1-input$eff/100
-
+    
     param$ICU = input$ICU*1e-6
-    param$ICUAdmissionRate = input$ICUAdmissionRate/100
-
+    param$ICUAdmissionFraction = input$ICUAdmissionFraction/100
+    
     param$a = input$aI
     param$d = 1/input$d_recip
     param$m = input$m/100
@@ -174,18 +188,18 @@ server <- function(input, output) {
                                     a("github", href="https://github.com/Kenhasteandersen/Corona"),
                                     ". Made by ",
                                     a("Ken H Andersen", href="http://ken.haste.dk"))
-                                    })
-
-#"The simulator is only for illustration and should not be used for decision support <br><br>
-#The simulator is based on a standard SIR (Susceptible-Infected-Recovered) epidemics model, though with an added distinction between
-#those being infection (without symptoms) and those with symptoms.<br><br>
-#Parameters are set based on rough estimates from wikipedia etc. Please let me know if any are wrong<br><br>
-#See https://www.imperial.ac.uk/media/imperial-college/medicine/sph/ide/gida-fellowships/Imperial-College-COVID19-NPI-modelling-16-03-2020.pdf
-#for in-depth analysis <br>
-#                             <br>
-#Code available on https://github.com/Kenhasteandersen/Corona <br><br>
-#                             Made by Ken H Andersen, kha@aqua.dtu.dk, http://ken.haste.dk.")
-                  
+  })
+  
+  #"The simulator is only for illustration and should not be used for decision support <br><br>
+  #The simulator is based on a standard SIR (Susceptible-Infected-Recovered) epidemics model, though with an added distinction between
+  #those being infection (without symptoms) and those with symptoms.<br><br>
+  #Parameters are set based on rough estimates from wikipedia etc. Please let me know if any are wrong<br><br>
+  #See https://www.imperial.ac.uk/media/imperial-college/medicine/sph/ide/gida-fellowships/Imperial-College-COVID19-NPI-modelling-16-03-2020.pdf
+  #for in-depth analysis <br>
+  #                             <br>
+  #Code available on https://github.com/Kenhasteandersen/Corona <br><br>
+  #                             Made by Ken H Andersen, kha@aqua.dtu.dk, http://ken.haste.dk.")
+  
 }
 
 runCorona <- function(param) {
@@ -196,43 +210,47 @@ runCorona <- function(param) {
     D = y[3]
     M = y[4]
     R = y[5]
+    Dintensive = y[6]
     
     transmission = param$a*(I+D)*S
-    diseased = param$d*I
+    diseased = (1-param$ICUAdmissionFraction)*param$d*I
+    intensive_care = param$ICUAdmissionFraction*param$d*I
     
-    mortality = param$m*param$r # "normal" mortaliry
+    #D_missing_ICU = max(0, D*param$ICUAdmissionFraction-param$ICU)
     
-    death = param$m*param$r*D
+    death_normal = param$m*param$r*D
+    death_intensive = param$m*param$r*Dintensive
     recovery = param$r*D
     
     dSdt = -transmission
-    dIdt = transmission - diseased
-    dDdt = diseased - death - recovery
-    dMdt = death
+    dIdt = transmission - diseased - intensive_care
+    dDdt = diseased - death_normal - recovery
+    dMdt = death_normal + death_intensive
     dRdt = recovery
+    dDintensive_dt = intensive_care - death_intensive
     
-    dydt = list(c(dSdt, dIdt, dDdt, dMdt, dRdt))
+    dydt = list(c(dSdt, dIdt, dDdt, dMdt, dRdt, dDintensive_dt))
   }
   
-  y0 = c(1, 1/5e6, 0,0,0)
+  y0 = c(1, 1/5e6, 0,0,0,0)
   # Run before quarantine:
   out = as.data.frame( ode(y0, seq(1, param$tStart, by=1), derivatives, parms = param) )
   # Run during quarantine:
   if (param$tEnd>param$tStart) {
     param$a = param$a * param$eff # Reduce transmission
     n = dim(out)[1]
-    y0 = as.numeric( out[ n, 2:6] )
+    y0 = as.numeric( out[ n, 2:7] )
     out = rbind( out[ 1:(n-1), ],
                  as.data.frame( ode(y0, seq(param$tStart, param$tEnd, by=1), derivatives, parms = param)))
     # Run after end of quarantine:
     param$a = param$a / param$eff # Reduce transmission
   }
   n = dim(out)[1]
-  y0 = as.numeric( out[ n, 2:6] )
+  y0 = as.numeric( out[ n, 2:7] )
   out = rbind( out[ 1:(n-1), ],
                as.data.frame( ode(y0, seq(param$tEnd, param$tMax, by=1), derivatives, parms = param)))
   
-  names(out) = c("time", "S", "I", "D", "M", "R")
+  names(out) = c("time", "S", "I", "D", "M", "R", "Dintensive")
   return(out)
 }
 
@@ -286,12 +304,13 @@ plotCorona = function(out, param) {
   #
   #lines(out$time, out$S, lwd=3)
   patchBelow(out$time, 0, out$D, col=rgb(1,0,0,0.5))
-  patchBelow(out$time, param$ICU/param$ICUAdmissionRate, pmax(param$ICU/param$ICUAdmissionRate, out$D), col=rgb(1,0,0,1))
+  patchBelow(out$time, param$ICU/param$ICUAdmissionFraction, pmax(param$ICU/param$ICUAdmissionFraction, out$D), col=rgb(1,0,0,1))
   lines(out$time, out$I, col=col[2], lwd=3)
-  lines(range(out$time), param$ICU/param$ICUAdmissionRate*c(1,1), col="red")
+  lines(range(out$time), param$ICU/param$ICUAdmissionFraction*c(1,1), col="red")
   #?polygonlines(out$time, out$D, col=col[3], lwd=3)
   lines(out$time, out$M, col=col[4], lwd=3)
-  text(x=0, y=param$ICU/param$ICUAdmissionRate, label="Limit of intensive\ncare capacity", adj=c(-0.01,-0.2), col="red")
+  #lines(out$time, 100*out$Dintensive, col="yellow")
+  text(x=0, y=param$ICU/param$ICUAdmissionFraction, label="Limit of intensive\ncare capacity", adj=c(-0.01,-0.2), col="red")
   #lines(out$time, out$R, col=col[5], lwd=3)
   # lines(range(out$time), param$ICU*c(1,1))
   # text(x=0, y=param$ICU, label="No. of intensive care units", adj=c(-0.01,-0.2))
@@ -307,7 +326,7 @@ plotCorona = function(out, param) {
   #
   # Patients in ICUs:
   #
-  # plot(out$time, out$D*param$ICUAdmissionRate, type="nS", lwd=3, ylim=c(0,1e-3), 
+  # plot(out$time, out$D*param$ICUAdmissionFraction, type="nS", lwd=3, ylim=c(0,1e-3), 
   #      xlab="Time (days)", ylab="Fraction of population", col=col[1],
   #      main="Patients in need of intensive care units")
   # # Quarantine patch
@@ -315,8 +334,8 @@ plotCorona = function(out, param) {
   #   polygon( c(param$tStart, param$tEnd, param$tEnd, param$tStart), c(0,0,1,1), col=grey(0.8), border=NA ) 
   #   text( param$tStart + 0.5*(param$tEnd-param$tStart), 0.95, labels="Quarantine")
   # }
-  # patchBelow(out$time, 0, out$D*param$ICUAdmissionRate, col=rgb(1,0,0,0.5))
-  # patchBelow(out$time, param$ICU, pmax(param$ICU, out$D*param$ICUAdmissionRate), col=rgb(1,0,0,1))
+  # patchBelow(out$time, 0, out$D*param$ICUAdmissionFraction, col=rgb(1,0,0,0.5))
+  # patchBelow(out$time, param$ICU, pmax(param$ICU, out$D*param$ICUAdmissionFraction), col=rgb(1,0,0,1))
   # lines(range(out$time), param$ICU*c(1,1))
   # text(x=0, y=param$ICU, label="No. of intensive care units", adj=c(-0.01,-0.2))
   #
@@ -335,8 +354,8 @@ plotCorona = function(out, param) {
   # lines(out$time, out$I, col=col[2], lwd=3)
   # #lines(out$time, out$D, col=col[3], lwd=1)
   # patchBelow(out$time, 1e-5, out$D, col=rgb(1,0,0,0.5))
-  # patchBelow(out$time, 1e-5, out$D*param$ICUAdmissionRate, col=rgb(1,0,0,1))
-  # #lines(out$time, out$D*param$ICUAdmissionRate, col=col[3], lwd=3)
+  # patchBelow(out$time, 1e-5, out$D*param$ICUAdmissionFraction, col=rgb(1,0,0,1))
+  # #lines(out$time, out$D*param$ICUAdmissionFraction, col=col[3], lwd=3)
   # lines(out$time, out$M, col=col[4], lwd=3)
   # lines(out$time, out$R, col=col[5], lwd=3)
   # #
