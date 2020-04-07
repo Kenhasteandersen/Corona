@@ -55,7 +55,7 @@ ui <- fluidPage(
                   "Day quarantine starts:",
                   min = 2,
                   max = 100,
-                  value = 30),
+                  value = 20),
       sliderInput("tQuarantine",
                   "Length of quarantine:",
                   min = 0,
@@ -70,7 +70,7 @@ ui <- fluidPage(
                   "Length of reduced quarantine:",
                   min = 0,
                   max = 99,
-                  value = 21),
+                  value = 40),
       sliderInput("eff2",
                   "Transmission reduction during reduced quarantine (% reduction):",
                   min = 0,
@@ -114,7 +114,7 @@ ui <- fluidPage(
                       "Transmission rate (per day):",
                       min = 0,
                       max = 1,
-                      value = 0.5),
+                      value = 0.61),
           sliderInput("d_recip",
                       "Time from infection to symptions (days):",
                       min = 0,
@@ -196,7 +196,7 @@ server <- function(input, output) {
   
   output$plotR <- renderPlot({
     plotR( sim()$sim, sim()$param )
-  }, height=200)
+  }, height=250)
   
   output$about <- renderUI({tagList(p("The simulator is only for illustration and should not be used for decision support"),
                                     p("The simulator is based on a standard SIR (Susceptible-Infected-Recovered) epidemics model, though with an added distinction between
@@ -419,7 +419,8 @@ plotCorona = function(out, param) {
 
 plotR = function(out, param) {
   plot(out$time, out$RR, type="l", lwd=3, col="blue",
-      xlab="Time (days)", ylab="R")
+      xlab="Time (days)", ylab="R",
+      ylim=c(0, 3))
   #
   # Quarantine patch
   #
