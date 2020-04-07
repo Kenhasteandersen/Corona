@@ -9,10 +9,10 @@ baseparam = function() {
   #
   # Basic SIR parameters
   #
-  param$d = 1/6
+  param$d = 1/6 # rate of developing symptoms
   param$m = 0.01 # The risk of dying if the disease is contracted
-  param$r = 1/6
-  param$aI = 2.5*param$r
+  param$r = 1/6 # recovery rate
+  param$aI = 2.5/(1/param$r+1/param$d)
   #
   # Quarantine parameters
   #
@@ -29,7 +29,7 @@ baseparam = function() {
   #
   # Simulation time
   #
-  param$tMax = 150
+  param$tMax = 200
   
   return(param)
 }
@@ -55,7 +55,7 @@ ui <- fluidPage(
                   "Day quarantine starts:",
                   min = 2,
                   max = 100,
-                  value = 20),
+                  value = 41),
       sliderInput("tQuarantine",
                   "Length of quarantine:",
                   min = 0,
@@ -65,7 +65,7 @@ ui <- fluidPage(
                   "Transmission reduction during quarantine (% reduction):",
                   min = 0,
                   max = 100,
-                  value = 70),
+                  value = 50),
       sliderInput("tQuarantine2",
                   "Length of reduced quarantine:",
                   min = 0,
@@ -75,7 +75,7 @@ ui <- fluidPage(
                   "Transmission reduction during reduced quarantine (% reduction):",
                   min = 0,
                   max = 100,
-                  value = 35)
+                  value = 25)
       ,
       hr(),
       checkboxInput("bParamICU",
@@ -114,9 +114,9 @@ ui <- fluidPage(
                       "Transmission rate (per day):",
                       min = 0,
                       max = 1,
-                      value = 0.61),
+                      value = 0.2),
           sliderInput("d_recip",
-                      "Time from infection to symptions (days):",
+                      "Time from infection to symptoms (days):",
                       min = 0,
                       max = 12,
                       value = 6),
@@ -255,7 +255,7 @@ runCorona <- function(param) {
     dydt = list(c(dSdt, dIdt, dDdt, dMdt, dRdt))
   }
   
-  y0 = c(1, 1/5e6, 0,0,0)
+  y0 = c(1, 500/1e6, 0,0,0)
   # Run before quarantine:
   out = as.data.frame( ode(y0, seq(1, param$tStart, by=1), derivatives, parms = param) )
   # Run during quarantine:
@@ -266,7 +266,7 @@ runCorona <- function(param) {
     out = rbind( out[ 1:(n-1), ],
                  as.data.frame( ode(y0, seq(param$tStart, param$tEnd, by=1), derivatives, parms = param)))
     # Run during reduced quarantine:
-    param$a = param$a * param$eff2 # Reduce transmission
+    param$a = param$a/param$eff * param$eff2 # Reduce transmission
     n = dim(out)[1]
     y0 = as.numeric( out[ n, 2:6] )
     print(param$eff2)
@@ -275,7 +275,7 @@ runCorona <- function(param) {
                  as.data.frame( ode(y0, seq(param$tEnd, param$tEnd2, by=1), derivatives, parms = param)))
     
     # Run after end of quarantine:
-    param$a = param$a / param$eff # Reduce transmission
+    param$a = param$a / param$eff2 # Reduce transmission
   }
   n = dim(out)[1]
   y0 = as.numeric( out[ n, 2:6] )
@@ -294,8 +294,9 @@ runCorona <- function(param) {
   ixQuarantine2 = out$time>=param$tEnd & out$time<param$tEnd2
   a[ixQuarantine2] = a[ixQuarantine2]*param$eff2
   
-  out$RR = a*out$S/param$r
-  
+  out$RR = a * out$S * (1/param$r+1/param$d)
+  print(param$a)
+  print(1/param$r+1/param$d)
   return(out)
 }
 
@@ -419,7 +420,7 @@ plotCorona = function(out, param) {
 
 plotR = function(out, param) {
   plot(out$time, out$RR, type="l", lwd=3, col="blue",
-      xlab="Time (days)", ylab="R",
+      xlab="Time (days)", ylab="Epidemic reproductive number, R",
       ylim=c(0, 3))
   #
   # Quarantine patch
@@ -433,8 +434,11 @@ plotR = function(out, param) {
              c(0,0,5,5), col=grey(0.9), border=NA ) 
   }
 
-    lines(out$time, out$RR, type="l", lwd=3, col="blue")  
+  lines(out$time, out$RR, type="l", lwd=3, col="blue")  
   lines(out$time, 1+0*out$time, lty=3)
+  
+  text(param$tMax, 1.3, adj=c(1,0), labels="Evolving epidemic", col="red")
+  text(param$tMax, 0.8, adj=c(1,1), labels="Controlled epidemic")
 }
 
 patchBelow <- function(x,y0,y,col) {
