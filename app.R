@@ -9,16 +9,18 @@ baseparam = function() {
   #
   # Basic SIR parameters
   #
-  param$aI = 0.5
   param$d = 1/6
   param$m = 0.01 # The risk of dying if the disease is contracted
   param$r = 1/6
+  param$aI = 2.5*param$r
   #
   # Quarantine parameters
   #
   param$tStart = 30
   param$tEnd = 45
   param$eff = 0.3
+  param$tEnd2 = 66
+  param$eff2 = 0.15
   #
   # ICU (per person)
   #
@@ -27,7 +29,7 @@ baseparam = function() {
   #
   # Simulation time
   #
-  param$tMax = 100
+  param$tMax = 150
   
   return(param)
 }
@@ -63,7 +65,17 @@ ui <- fluidPage(
                   "Transmission reduction during quarantine (% reduction):",
                   min = 0,
                   max = 100,
-                  value = 70)
+                  value = 70),
+      sliderInput("tQuarantine2",
+                  "Length of reduced quarantine:",
+                  min = 0,
+                  max = 99,
+                  value = 21),
+      sliderInput("eff2",
+                  "Transmission reduction during reduced quarantine (% reduction):",
+                  min = 0,
+                  max = 100,
+                  value = 35)
       ,
       hr(),
       checkboxInput("bParamICU",
@@ -145,6 +157,8 @@ server <- function(input, output) {
     input$tStart
     input$tQuarantine
     input$eff
+    input$tQuarantine2
+    input$eff2
     input$ICU
     input$ICUAdmissionFraction
     input$aI
@@ -161,6 +175,9 @@ server <- function(input, output) {
     param$tEnd = min(param$tMax-1, input$tQuarantine+param$tStart)
     param$eff = 1-input$eff/100
     
+    param$tEnd2 = min(param$tMax-1, param$tEnd + input$tQuarantine2)
+    param$eff2 = 1-input$eff2/100
+    
     param$ICU = input$ICU*1e-6
     param$ICUAdmissionFraction = input$ICUAdmissionFraction/100
     
@@ -168,8 +185,6 @@ server <- function(input, output) {
     param$d = 1/input$d_recip
     param$m = input$m/100
     param$r = 1/input$r_recip
-    
-    param$tMax = 100
     
     # Simulate
     return( list(sim=runCorona(param), param=param) )   
@@ -250,21 +265,35 @@ runCorona <- function(param) {
     y0 = as.numeric( out[ n, 2:6] )
     out = rbind( out[ 1:(n-1), ],
                  as.data.frame( ode(y0, seq(param$tStart, param$tEnd, by=1), derivatives, parms = param)))
+    # Run during reduced quarantine:
+    param$a = param$a * param$eff2 # Reduce transmission
+    n = dim(out)[1]
+    y0 = as.numeric( out[ n, 2:6] )
+    print(param$eff2)
+    print(param$eff)
+    out = rbind( out[ 1:(n-1), ],
+                 as.data.frame( ode(y0, seq(param$tEnd, param$tEnd2, by=1), derivatives, parms = param)))
+    
     # Run after end of quarantine:
     param$a = param$a / param$eff # Reduce transmission
   }
   n = dim(out)[1]
   y0 = as.numeric( out[ n, 2:6] )
   out = rbind( out[ 1:(n-1), ],
-               as.data.frame( ode(y0, seq(param$tEnd, param$tMax, by=1), derivatives, parms = param)))
+               as.data.frame( ode(y0, seq(param$tEnd2, param$tMax, by=1), derivatives, parms = param)))
   
   names(out) = c("time", "S", "I", "D", "M", "R")
   #
   # Calc R
   #
   a = rep(param$a, length(out$time))
+
   ixQuarantine = out$time>param$tStart & out$time<param$tEnd
   a[ixQuarantine] = a[ixQuarantine]*param$eff
+  
+  ixQuarantine2 = out$time>=param$tEnd & out$time<param$tEnd2
+  a[ixQuarantine2] = a[ixQuarantine2]*param$eff2
+  
   out$RR = a*out$S/param$r
   
   return(out)
@@ -315,6 +344,14 @@ plotCorona = function(out, param) {
     polygon( c(param$tStart, param$tEnd, param$tEnd, param$tStart), c(0,0,1,1), col=grey(0.8), border=NA ) 
     text( param$tStart + 0.5*(param$tEnd-param$tStart), 0.39, labels="Quarantine")
   }
+  
+  if (param$tEnd > param$tStart) {
+    polygon( c(param$tEnd, param$tEnd2, param$tEnd2, param$tEnd), 
+             c(0,0,1,1), col=grey(0.9), border=NA ) 
+    text( param$tEnd + 0.5*(param$tEnd2-param$tEnd), 0.39, 
+          labels="(reduced)")
+  }
+  
   #
   # SIR output:
   #
@@ -390,7 +427,12 @@ plotR = function(out, param) {
     polygon( c(param$tStart, param$tEnd, param$tEnd, param$tStart), 
              c(0,0,5,5), col=grey(0.8), border=NA ) 
   }
-  lines(out$time, out$RR, type="l", lwd=3, col="blue")  
+  if (param$tEnd > param$tStart) {
+    polygon( c(param$tEnd, param$tEnd2, param$tEnd2, param$tEnd), 
+             c(0,0,5,5), col=grey(0.9), border=NA ) 
+  }
+
+    lines(out$time, out$RR, type="l", lwd=3, col="blue")  
   lines(out$time, 1+0*out$time, lty=3)
 }
 
