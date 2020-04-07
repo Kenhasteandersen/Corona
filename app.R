@@ -17,12 +17,12 @@ baseparam = function() {
   # Quarantine parameters
   #
   param$tStart = 30
-  param$tEnd = 99
+  param$tEnd = 45
   param$eff = 0.3
   #
   # ICU (per person)
   #
-  param$ICU = 0.0003 # US; https://www.medpagetoday.com/hospitalbasedmedicine/generalhospitalpractice/84845
+  param$ICU = 0.0001 # US; https://www.medpagetoday.com/hospitalbasedmedicine/generalhospitalpractice/84845
   param$ICUAdmissionFraction = 0.0025  # https://www.medpagetoday.com/hospitalbasedmedicine/generalhospitalpractice/84845
   #
   # Simulation time
@@ -58,7 +58,7 @@ ui <- fluidPage(
                   "Length of quarantine:",
                   min = 0,
                   max = 99,
-                  value = 14),
+                  value = 21),
       sliderInput("eff",
                   "Transmission reduction during quarantine (% reduction):",
                   min = 0,
@@ -130,7 +130,8 @@ ui <- fluidPage(
         tabPanel('About',
                  uiOutput("about")),
         tabPanel('Simulation results',
-                 plotOutput("plotEpidemic")),
+                 plotOutput("plotEpidemic"),
+                 plotOutput("plotR")),
         selected='Simulation results'
       )
     )
@@ -178,6 +179,10 @@ server <- function(input, output) {
     plotCorona( sim()$sim, sim()$param )
   }, height=400)
   
+  output$plotR <- renderPlot({
+    plotR( sim()$sim, sim()$param )
+  }, height=200)
+  
   output$about <- renderUI({tagList(p("The simulator is only for illustration and should not be used for decision support"),
                                     p("The simulator is based on a standard SIR (Susceptible-Infected-Recovered) epidemics model, though with an added distinction between
                                     those being infection (without symptoms) and those with symptoms."),
@@ -210,47 +215,58 @@ runCorona <- function(param) {
     D = y[3]
     M = y[4]
     R = y[5]
-    Dintensive = y[6]
+    #Dintensive = y[6]
     
     transmission = param$a*(I+D)*S
-    diseased = (1-param$ICUAdmissionFraction)*param$d*I
-    intensive_care = param$ICUAdmissionFraction*param$d*I
+    diseased = param$d*I
+    #intensive_care = param$ICUAdmissionFraction*param$d*I
     
     #D_missing_ICU = max(0, D*param$ICUAdmissionFraction-param$ICU)
     
     death_normal = param$m*param$r*D
-    death_intensive = param$m*param$r*Dintensive
-    recovery = param$r*D
+    #death_intensive = param$m*param$r*Dintensive
+    #if (Dintensive > param$ICU) 
+    #  death_intensive = death_intensive + (Dintensive - param$ICU)
+    recovery = param$r*D 
+    #recovery_intensive = 0.5*param$r*Dintensive
     
     dSdt = -transmission
-    dIdt = transmission - diseased - intensive_care
+    dIdt = transmission - diseased
     dDdt = diseased - death_normal - recovery
-    dMdt = death_normal + death_intensive
-    dRdt = recovery
-    dDintensive_dt = intensive_care - death_intensive
+    dMdt = death_normal
+    dRdt = recovery 
+    #dDintensive_dt = intensive_care - death_intensive - recovery_intensive
     
-    dydt = list(c(dSdt, dIdt, dDdt, dMdt, dRdt, dDintensive_dt))
+    dydt = list(c(dSdt, dIdt, dDdt, dMdt, dRdt))
   }
   
-  y0 = c(1, 1/5e6, 0,0,0,0)
+  y0 = c(1, 1/5e6, 0,0,0)
   # Run before quarantine:
   out = as.data.frame( ode(y0, seq(1, param$tStart, by=1), derivatives, parms = param) )
   # Run during quarantine:
   if (param$tEnd>param$tStart) {
     param$a = param$a * param$eff # Reduce transmission
     n = dim(out)[1]
-    y0 = as.numeric( out[ n, 2:7] )
+    y0 = as.numeric( out[ n, 2:6] )
     out = rbind( out[ 1:(n-1), ],
                  as.data.frame( ode(y0, seq(param$tStart, param$tEnd, by=1), derivatives, parms = param)))
     # Run after end of quarantine:
     param$a = param$a / param$eff # Reduce transmission
   }
   n = dim(out)[1]
-  y0 = as.numeric( out[ n, 2:7] )
+  y0 = as.numeric( out[ n, 2:6] )
   out = rbind( out[ 1:(n-1), ],
                as.data.frame( ode(y0, seq(param$tEnd, param$tMax, by=1), derivatives, parms = param)))
   
-  names(out) = c("time", "S", "I", "D", "M", "R", "Dintensive")
+  names(out) = c("time", "S", "I", "D", "M", "R")
+  #
+  # Calc R
+  #
+  a = rep(param$a, length(out$time))
+  ixQuarantine = out$time>param$tStart & out$time<param$tEnd
+  a[ixQuarantine] = a[ixQuarantine]*param$eff
+  out$RR = a*out$S/param$r
+  
   return(out)
 }
 
@@ -362,6 +378,20 @@ plotCorona = function(out, param) {
   # # ICUs
   # #
   # lines(range(out$time), param$ICU*c(1,1))
+}
+
+plotR = function(out, param) {
+  plot(out$time, out$RR, type="l", lwd=3, col="blue",
+      xlab="Time (days)", ylab="R")
+  #
+  # Quarantine patch
+  #
+  if (param$tEnd > param$tStart) {
+    polygon( c(param$tStart, param$tEnd, param$tEnd, param$tStart), 
+             c(0,0,5,5), col=grey(0.8), border=NA ) 
+  }
+  lines(out$time, out$RR, type="l", lwd=3, col="blue")  
+  lines(out$time, 1+0*out$time, lty=3)
 }
 
 patchBelow <- function(x,y0,y,col) {
